@@ -30,7 +30,7 @@ def test_inert_without_base_url(monkeypatch):
 
 
 def test_points_the_sdk_at_the_gateway(monkeypatch):
-    monkeypatch.setenv(otari.BASE_URL_ENV, "https://otari.example/")
+    monkeypatch.setenv(otari.BASE_URL_ENV, "https://otari.example/api/v1/")
     monkeypatch.setenv(otari.KEY_ENV, "tk-run")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-real")
 

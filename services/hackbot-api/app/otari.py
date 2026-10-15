@@ -1,7 +1,7 @@
 """Per-run keys on an Otari gateway, for budget enforcement and cost per run.
 
 When `settings.otari.url` is set, every run gets a key of its own, minted just
-before its execution starts and revoked when it finalizes:
+before its execution starts and deactivated when it finalizes:
 
 - The key belongs to an Otari user named for the agent (`hackbot-<agent>`), so
   the budget on that user caps what the agent spends across all its runs (for
@@ -121,7 +121,10 @@ def run_env(run_key: RunKey | None) -> dict[str, str]:
     """The agent container's env for routing through the gateway."""
     if run_key is None:
         return {}
-    env = {"OTARI_BASE_URL": settings.otari.url, "OTARI_API_KEY": run_key.key}
+    env = {
+        "OTARI_BASE_URL": settings.otari.url.rstrip("/") + _API,
+        "OTARI_API_KEY": run_key.key,
+    }
     if settings.otari.web_search:
         env["OTARI_WEB_SEARCH"] = settings.otari.web_search
     return env
@@ -148,8 +151,10 @@ async def close_run_key(key_id: str, since: datetime) -> float | None:
             cost = resp.json()["totals"]["cost"]
         except httpx.HTTPError, KeyError:
             log.warning("Could not read the spend of Otari key %s", key_id)
+        # Deactivate rather than delete: deleting a key clears it from its
+        # usage rows and leaves its scoped budget behind.
         try:
-            resp = await client.delete(f"/keys/{key_id}")
+            resp = await client.patch(f"/keys/{key_id}", json={"is_active": False})
             if resp.status_code != 404:
                 resp.raise_for_status()
         except httpx.HTTPError:

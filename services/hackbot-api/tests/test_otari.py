@@ -101,7 +101,7 @@ def test_run_env_carries_the_gateway_and_web_search(monkeypatch):
     env = otari.run_env(otari.RunKey(id="key-1", key="tk-secret"))
 
     assert env == {
-        "OTARI_BASE_URL": "https://otari.example",
+        "OTARI_BASE_URL": "https://otari.example/api/v1",
         "OTARI_API_KEY": "tk-secret",
         "OTARI_WEB_SEARCH": "auto",
     }
@@ -112,18 +112,19 @@ async def test_close_reads_the_spend_and_revokes(gateway):
     responses[("GET", "/api/v1/usage/summary")] = httpx.Response(
         200, json={"totals": {"cost": 3.5}}
     )
-    responses[("DELETE", "/api/v1/keys/key-1")] = httpx.Response(204)
+    responses[("PATCH", "/api/v1/keys/key-1")] = httpx.Response(200, json={})
 
     cost = await otari.close_run_key("key-1", datetime.now(timezone.utc))
 
     assert cost == 3.5
     assert requests[0].url.params["api_key_id"] == "key-1"
-    assert requests[1].method == "DELETE"
+    assert requests[1].method == "PATCH"
+    assert json.loads(requests[1].content) == {"is_active": False}
 
 
 async def test_close_is_best_effort(gateway):
     _, responses = gateway
     responses[("GET", "/api/v1/usage/summary")] = httpx.Response(500, json={})
-    responses[("DELETE", "/api/v1/keys/key-1")] = httpx.Response(500, json={})
+    responses[("PATCH", "/api/v1/keys/key-1")] = httpx.Response(500, json={})
 
     assert await otari.close_run_key("key-1", datetime.now(timezone.utc)) is None

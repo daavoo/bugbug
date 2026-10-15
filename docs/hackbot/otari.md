@@ -25,7 +25,7 @@ hackbot-api ── mint key (user hackbot-<agent>, expires with the job,
          hackbot-runtime points the Claude SDK at Otari ──┘
          (ANTHROPIC_BASE_URL, bearer key, Otari-Conversation-Id: hackbot-<run_id>)
 
-finalize ── read the run's spend into runs.llm_cost_usd, revoke the key ──> Otari
+finalize ── read the run's spend into runs.llm_cost_usd, deactivate the key ──> Otari
 ```
 
 - **hackbot-api** ([app/otari.py](../../services/hackbot-api/app/otari.py)) mints one key per
@@ -33,7 +33,8 @@ finalize ── read the run's spend into runs.llm_cost_usd, revoke the key ─�
   (`hackbot-<agent>`), so the budget on that user caps the agent across all its runs. When
   `OTARI_RUN_BUDGET_ID` is set, a scoped budget on the key also caps the run on its own. The
   key expires at the job timeout plus the grace window. At finalize the API reads the run's
-  spend into `runs.llm_cost_usd`, exposed on `RunDoc`, and revokes the key.
+  spend into `runs.llm_cost_usd`, exposed on `RunDoc`, and deactivates the key. It does not
+  delete it: deletion would clear the key from its usage rows and strand its scoped budget.
 - **hackbot-runtime** ([hackbot_runtime/otari.py](../../libs/hackbot-runtime/hackbot_runtime/otari.py))
   sees `OTARI_BASE_URL` and points the Claude SDK and CLI at the gateway. It replaces any real
   Anthropic key in the environment with the run key, so that key never reaches the gateway, and
@@ -55,7 +56,7 @@ finalize ── read the run's spend into runs.llm_cost_usd, revoke the key ─�
 
 | Variable           | Meaning                                                                                                                  |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `OTARI_BASE_URL`   | Gateway origin.                                                                                                          |
+| `OTARI_BASE_URL`   | Gateway API root, `<origin>/api/v1`, as `langchain-otari` reads it.                                                     |
 | `OTARI_API_KEY`    | The run's key.                                                                                                           |
 | `OTARI_WEB_SEARCH` | Optional. Sends `Otari-Web-Search`, so Claude Code's WebSearch is run by Otari on a model that has no search of its own. |
 
@@ -98,7 +99,7 @@ set `ANTHROPIC_DEFAULT_HAIKU_MODEL` on the Job.
 
 - **The gateway holds the Anthropic key.** WIF keeps every long-lived model credential out of
   the platform; with Otari, the gateway holds one. The agent container still holds nothing
-  long-lived: the run key is capped, expires with the job and is revoked at finalize. Like the
+  long-lived: the run key is capped, expires with the job and is deactivated at finalize. Like the
   upload policy, it is visible in the execution's env overrides.
 - **Tracing stays in Weave.** Otari's per-run trace covers model calls only. Exporting
   Claude Code's OpenTelemetry to Otari as well would count each call's cost twice, so it is

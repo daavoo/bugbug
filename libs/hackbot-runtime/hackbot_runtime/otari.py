@@ -6,7 +6,7 @@ can serve a model id from a provider other than Anthropic, open-weight models
 included. Pointing the Claude SDK/CLI at it is a matter of environment
 variables, so no agent code changes:
 
-  ``OTARI_BASE_URL``    the gateway's origin                 ── set by deploy
+  ``OTARI_BASE_URL``    the gateway's API root (``…/api/v1``) ── set by deploy
   ``OTARI_API_KEY``     a key minted for this run            ── set per run
   ``OTARI_WEB_SEARCH``  ``auto`` | ``otari`` | ``provider``  ── optional
 
@@ -88,8 +88,9 @@ def configure(run_id: str) -> bool:
             "credential for the gateway."
         )
 
-    # The SDK appends /v1/messages itself; Otari serves it under /api.
-    os.environ["ANTHROPIC_BASE_URL"] = os.environ[BASE_URL_ENV].rstrip("/") + "/api"
+    # Same convention as langchain-otari. The SDK appends /v1/messages itself.
+    api_root = os.environ[BASE_URL_ENV].rstrip("/")
+    os.environ["ANTHROPIC_BASE_URL"] = api_root.removesuffix("/v1")
     # Both names carry the gateway key, which also replaces any real Anthropic
     # key in the environment so it is never sent to the gateway. The CLI sends
     # the auth token as a bearer and the Python SDK sends the API key as
