@@ -28,6 +28,7 @@ dependencies = [
     "langchain-google-genai>=4.2.1,<4.4.0",
     "langchain-mistralai~=1.1.2",
     "langchain-openai>=1.1.14,<1.5.0",
+    "langchain-otari~=0.1.0",
     "langgraph>=1.2.5",
     "libmozdata~=0.2.12",
     "lmdb>=1.8.1,<2.4.0",

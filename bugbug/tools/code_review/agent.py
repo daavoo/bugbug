@@ -14,7 +14,7 @@ from typing import Optional
 from langchain.agents import create_agent
 from langchain.agents.middleware import TodoListMiddleware
 from langchain.agents.structured_output import ProviderStrategy, ToolStrategy
-from langchain.chat_models import BaseChatModel, init_chat_model
+from langchain.chat_models import BaseChatModel
 from langchain.messages import HumanMessage
 from langgraph.errors import GraphRecursionError
 from unidiff import PatchSet
@@ -55,7 +55,11 @@ from bugbug.tools.core.exceptions import (
     LargeDiffError,
     RecursionLimitError,
 )
-from bugbug.tools.core.llms import DEFAULT_ANTHROPIC_MODEL, get_tokenizer
+from bugbug.tools.core.llms import (
+    DEFAULT_ANTHROPIC_MODEL,
+    create_llm,
+    get_tokenizer,
+)
 from bugbug.tools.core.platforms.base import Patch
 
 logger = getLogger(__name__)
@@ -180,8 +184,9 @@ class CodeReviewTool(GenerativeModelTool):
             )
 
         if "llm" not in kwargs:
-            kwargs["llm"] = init_chat_model(
+            kwargs["llm"] = create_llm(
                 DEFAULT_ANTHROPIC_MODEL,
+                tool="code_review",
                 max_tokens=40_000,
                 temperature=None,
                 thinking={"type": "adaptive"},

@@ -573,6 +573,7 @@ dependencies = [
     { name = "langchain-google-genai" },
     { name = "langchain-mistralai" },
     { name = "langchain-openai" },
+    { name = "langchain-otari" },
     { name = "langgraph" },
     { name = "libmozdata" },
     { name = "lmdb" },
@@ -655,6 +656,7 @@ requires-dist = [
     { name = "langchain-google-genai", specifier = ">=4.2.1,<4.4.0" },
     { name = "langchain-mistralai", specifier = "~=1.1.2" },
     { name = "langchain-openai", specifier = ">=1.1.14,<1.5.0" },
+    { name = "langchain-otari", specifier = "~=0.1.0" },
     { name = "langgraph", specifier = ">=1.2.5" },
     { name = "libmozdata", specifier = "~=0.2.12" },
     { name = "lmdb", specifier = ">=1.8.1,<2.4.0" },
@@ -3416,6 +3418,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/62/2a/daaafa7a398dfc5b3824c087ccfac475875c9018d7ec0f21cd015e6fd7fc/langchain_openai-1.4.3.tar.gz", hash = "sha256:416fbb39ccb62f0dac8180387a56b70f255b8c14c2ec3f774c4074dbcd9aae04", size = 3263452, upload-time = "2026-08-10T13:23:12.732Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b8/fb/a72bb3e8ff427bdd79acd6d04131d77281c57bf979c5c3c8650019a30afc/langchain_openai-1.4.3-py3-none-any.whl", hash = "sha256:351c9dd409ea3ba6562916a9f4655bbf1530e7d84e325b0681e984d63118850b", size = 122433, upload-time = "2026-08-10T13:23:11.326Z" },
+]
+
+[[package]]
+name = "langchain-otari"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-openai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/0b/bbb97f5ddaf47d8c1daf934b9ea0d40f6d253aaac0552176d949b866f67d/langchain_otari-0.1.0.tar.gz", hash = "sha256:bad265d3bdc3e4858e6404c8f45466fd0525c30f3e97e50e54cd8b708984f0fe", size = 7807, upload-time = "2026-10-14T14:39:57.596Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/0e/653be8c4e74cd42b3eedb75d503f4296ce2a179a90749f8bb778310029f9/langchain_otari-0.1.0-py3-none-any.whl", hash = "sha256:943d66acbdbf13629a0923aca915ac8be0596f323149b5deb1c157b391e6fef8", size = 7638, upload-time = "2026-10-14T14:39:56.388Z" },
 ]
 
 [[package]]

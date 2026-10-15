@@ -2,12 +2,12 @@ from typing import Annotated
 
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ProviderStrategy
-from langchain.chat_models import BaseChatModel, init_chat_model
+from langchain.chat_models import BaseChatModel
 from langchain.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from bugbug.tools.comment_matching.prompts import FIRST_MESSAGE_TEMPLATE, SYSTEM_PROMPT
-from bugbug.tools.core.llms import DEFAULT_OPENAI_MODEL
+from bugbug.tools.core.llms import DEFAULT_OPENAI_MODEL, create_llm
 
 
 class MatchingComment(BaseModel):
@@ -43,7 +43,7 @@ class CommentMatchingTool:
     @classmethod
     def create(cls, **kwargs):
         if "llm" not in kwargs:
-            kwargs["llm"] = init_chat_model(DEFAULT_OPENAI_MODEL)
+            kwargs["llm"] = create_llm(DEFAULT_OPENAI_MODEL, tool="comment_matching")
 
         return cls(**kwargs)
 
