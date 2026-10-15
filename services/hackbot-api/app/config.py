@@ -48,6 +48,24 @@ class SlackSettings(BaseModel):
     bot_token: str
 
 
+class OtariSettings(BaseModel):
+    """Optional Otari gateway that runs reach models through (see app/otari.py).
+
+    Populated from OTARI_* env vars. Unset `url` leaves runs talking to
+    Anthropic directly.
+    """
+
+    url: str = ""
+    # Operator credential for minting and revoking per-run keys.
+    master_key: str = ""
+    # Budget given to each agent's Otari user when it is first created.
+    agent_budget_id: str | None = None
+    # Budget capping each run on its own, as a scoped budget on its key.
+    run_budget_id: str | None = None
+    # Otari-Web-Search mode for runs: auto, otari or provider.
+    web_search: str | None = None
+
+
 class Settings(BaseSettings):
     # GCP
     gcp_project: str = ""
@@ -92,6 +110,8 @@ class Settings(BaseSettings):
     bugzilla_edge_key: str | None = None
 
     slack: SlackSettings
+
+    otari: OtariSettings = OtariSettings()
 
     # The webhook receiver triggers runs over the public API (rather than calling
     # the DB/jobs internals directly), so splitting it into its own service later

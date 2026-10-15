@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import pytest
-from app import gcs, jobs, pubsub
+from app import gcs, jobs, otari, pubsub
 from app.jobs import ExecutionStatus
 from app.routers import runs as runs_module
 from app.routers.runs import finalize_run
@@ -28,6 +28,9 @@ class _FakeRun:
     summary: dict | None = None
     error: str | None = None
     finalized_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    otari_key_id: str | None = None
+    llm_cost_usd: float | None = None
 
 
 class _FakeDB:
@@ -95,6 +98,25 @@ async def test_finalizes_succeeded_run(monkeypatch, _no_publish):
     assert run.finalized_at is not None
     assert run.artifacts == [{"name": "summary.json", "size": 10, "content_type": None}]
     assert _no_publish == [(str(run.run_id), run.agent, RunStatus.succeeded.value)]
+
+
+async def test_finalize_closes_the_runs_otari_key(monkeypatch, _no_publish):
+    run = _FakeRun(otari_key_id="key-1")
+    closed = []
+
+    async def fake_close(key_id, since):
+        closed.append((key_id, since))
+        return 1.25
+
+    monkeypatch.setattr(jobs, "get_execution_status", _async(ExecutionStatus.succeeded))
+    monkeypatch.setattr(gcs, "read_summary", _async(RunSummary(status="ok")))
+    monkeypatch.setattr(gcs, "list_artifacts", _async([]))
+    monkeypatch.setattr(otari, "close_run_key", fake_close)
+
+    await finalize_run(_FakeDB(), run)
+
+    assert closed == [("key-1", run.created_at)]
+    assert run.llm_cost_usd == 1.25
 
 
 @pytest.mark.parametrize(

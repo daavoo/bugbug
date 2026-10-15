@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import gcs, jobs, pubsub
+from app import gcs, jobs, otari, pubsub
 from app.action_handlers.registry import PATCH_ACTION_TYPES
 from app.actions_applier import apply_all_pending
 from app.agents import AGENT_REGISTRY, AgentSpec, model_to_env
@@ -173,12 +173,16 @@ async def create_run(
 
     try:
         policy = await gcs.generate_results_policy(str(run_id))
+        run_key = await otari.mint_run_key(agent.name, str(run_id), on_behalf_of)
+        if run_key is not None:
+            run.otari_key_id = run_key.id
         env_overrides: dict[str, str] = {
             "RUN_ID": str(run_id),
             "RESULTS_BUCKET": settings.results_bucket,
             "RESULTS_PREFIX": results_prefix,
             "RESULTS_POLICY_URL": policy["url"],
             "RESULTS_POLICY_FIELDS": json.dumps(policy["fields"]),
+            **otari.run_env(run_key),
             **(agent.build_env or model_to_env)(inputs),
         }
         execution_name = await jobs.trigger_execution(agent.job_name, env_overrides)
@@ -347,6 +351,8 @@ async def finalize_run(db: AsyncSession, run: Run) -> None:
         run.summary = summary.model_dump(mode="json")
     if error is not None:
         run.error = error
+    if run.otari_key_id is not None:
+        run.llm_cost_usd = await otari.close_run_key(run.otari_key_id, run.created_at)
     run.finalized_at = datetime.now(timezone.utc)
 
     await db.commit()

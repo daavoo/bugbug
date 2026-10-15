@@ -142,3 +142,31 @@ def test_an_unusable_dedupe_key_is_rejected(client, db, raw):
     # name.
     assert _create_keyed(client, key=raw).status_code == 422
     assert db.added is None
+
+
+# --- Otari gateway ---
+
+
+def test_create_run_hands_the_agent_a_minted_otari_key(client, db, monkeypatch):
+    from app import otari
+
+    seen_env = {}
+
+    async def fake_trigger(job_name, env):
+        seen_env.update(env)
+        return "projects/p/locations/l/jobs/j/executions/e"
+
+    async def fake_mint(agent, run_id, requested_by):
+        assert (agent, requested_by) == ("bug-fix", "someone@mozilla.com")
+        return otari.RunKey(id="key-1", key="tk-run")
+
+    monkeypatch.setattr(jobs, "trigger_execution", fake_trigger)
+    monkeypatch.setattr(otari, "mint_run_key", fake_mint)
+    monkeypatch.setattr(
+        otari, "run_env", lambda key: {"OTARI_API_KEY": key.key} if key else {}
+    )
+
+    _create(client, {"X-On-Behalf-Of": "someone@mozilla.com"})
+
+    assert seen_env["OTARI_API_KEY"] == "tk-run"
+    assert db.added.otari_key_id == "key-1"

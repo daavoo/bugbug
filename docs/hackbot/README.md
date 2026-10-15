@@ -58,6 +58,7 @@ what it proposed.
 | Work on the control-plane service                          | [api.md](api.md)                   |
 | Know how runs get started                                  | [triggers.md](triggers.md)         |
 | Reason about credentials and trust boundaries              | [security.md](security.md)         |
+| Route model traffic through an Otari gateway (optional)    | [otari.md](otari.md)               |
 | Deploy, configure, or run things locally                   | [deployment.md](deployment.md)     |
 | Look at traces of a run                                    | [tracing.md](tracing.md)           |
 

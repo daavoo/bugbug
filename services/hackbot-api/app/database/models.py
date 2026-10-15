@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -49,6 +50,9 @@ class Run(Base):
     finalized_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Set only when the run reached models through an Otari gateway.
+    otari_key_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    llm_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class RunAction(Base):
