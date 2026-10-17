@@ -13,7 +13,7 @@ from hackbot_runtime import anthropic_wif, otari, wandb_wif
 from hackbot_runtime.config import HackbotConfig, load_config
 from hackbot_runtime.context import HackbotContext
 from hackbot_runtime.results import HackbotAgentResult
-from hackbot_runtime.tracing import trace_agent
+from hackbot_runtime.tracing import resolve_agent_name, trace_agent
 
 log = logging.getLogger("hackbot_runtime")
 
@@ -34,18 +34,18 @@ _SUMMARY_NAME = "summary.json"
 _AGENT_LOG_KEY = "logs/agent.log"
 
 
-def _configure_auth(run_id: str) -> None:
+def _configure_auth(run_id: str, agent: str) -> None:
     """Set up the model-provider and observability credentials before the run.
 
     Both Anthropic (model access) and W&B (Weave tracing) support GCP Workload
     Identity Federation, so in deployment neither needs a long-lived key in the
     agent container; both fall back to their API-key env var locally. A deploy
-    that sets ``OTARI_BASE_URL`` routes model access through the gateway instead,
-    on a key minted for this run.
+    that sets ``OTARI_BASE_URL`` sends model traffic through the gateway, which
+    answers the same federation exchange.
     """
-    if otari.configure(run_id):
+    if otari.configure(run_id, agent):
         log.info("Configured Otari gateway routing")
-    elif anthropic_wif.configure():
+    if anthropic_wif.configure():
         log.info("Configured Anthropic WIF authentication")
     if wandb_wif.configure():
         log.info("Configured W&B WIF authentication")
@@ -196,7 +196,7 @@ def run(entrypoint: AgentMain, config: ConfigArg = None) -> NoReturn:
         raise SystemExit(2)
 
     try:
-        _configure_auth(ctx.run_id)
+        _configure_auth(ctx.run_id, resolve_agent_name(entrypoint))
         with trace_agent(entrypoint, ctx.run_id):
             outcome: object = entrypoint(ctx)
     except Exception as exc:
@@ -213,7 +213,7 @@ def run_async(entrypoint: AsyncAgentMain, config: ConfigArg = None) -> NoReturn:
         raise SystemExit(2)
 
     try:
-        _configure_auth(ctx.run_id)
+        _configure_auth(ctx.run_id, resolve_agent_name(entrypoint))
         with trace_agent(entrypoint, ctx.run_id):
             outcome: object = asyncio.run(entrypoint(ctx))
     except Exception as exc:

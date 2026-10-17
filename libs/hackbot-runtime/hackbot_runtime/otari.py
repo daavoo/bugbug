@@ -1,25 +1,28 @@
 """Route an agent's model traffic through an Otari gateway.
 
 Otari (https://github.com/mozilla-ai/otari) is an Anthropic-compatible LLM
-gateway: it enforces spend caps per key, records the cost of every request, and
-can serve a model id from a provider other than Anthropic, open-weight models
-included. Pointing the Claude SDK/CLI at it is a matter of environment
-variables, so no agent code changes:
+gateway: it enforces spend caps, records the cost of every request, and can
+serve a run from a provider other than Anthropic, open-weight models included.
+The Claude SDK/CLI only needs a different base URL, so no agent code changes:
 
-  ``OTARI_BASE_URL``    the gateway's API root (``…/api/v1``) ── set by deploy
-  ``OTARI_API_KEY``     a key minted for this run            ── set per run
-  ``OTARI_WEB_SEARCH``  ``auto`` | ``otari`` | ``provider``  ── optional
+  ``OTARI_BASE_URL``    the gateway's API root (``…/api/v1``)  ── set by deploy
+  ``OTARI_WEB_SEARCH``  ``auto`` | ``otari`` | ``provider``   ── optional
 
-hackbot-api mints ``OTARI_API_KEY`` per run, capped by a budget and expiring
-with the job, so the agent container still holds no long-lived credential.
+Authentication is unchanged. Otari answers the same Workload Identity
+Federation exchange Anthropic does, so a deployed run keeps its Google identity
+token and :mod:`anthropic_wif`; the deploy points ``ANTHROPIC_FEDERATION_RULE_ID``
+and ``ANTHROPIC_ORGANIZATION_ID`` at the Otari rule and organization, and
+``ANTHROPIC_IDENTITY_TOKEN_AUDIENCE`` at the audience that rule matches. A local
+run sets ``ANTHROPIC_API_KEY`` to an Otari key instead.
 
 Every request carries ``Otari-Conversation-Id: hackbot-<run_id>``, which groups
 a run's model calls into one trace on the gateway, across every ``query()`` and
-subagent the run makes. ``OTARI_WEB_SEARCH`` sets ``Otari-Web-Search``, so
-Claude Code's WebSearch keeps working on a model with no search of its own.
+subagent the run makes, and ``Otari-Tags: app=hackbot,agent=<agent>``, which
+splits usage by agent. ``OTARI_WEB_SEARCH`` sets ``Otari-Web-Search``, so Claude
+Code's WebSearch is run by Otari's search backend where asked.
 
 When ``OTARI_BASE_URL`` is absent this module is inert and the runtime talks to
-Anthropic directly, through WIF or ``ANTHROPIC_API_KEY``.
+Anthropic directly.
 """
 
 from __future__ import annotations
@@ -27,16 +30,15 @@ from __future__ import annotations
 import logging
 import os
 
-from hackbot_runtime import anthropic_wif
 from hackbot_runtime.providers import ProviderError
 
 log = logging.getLogger("hackbot_runtime.otari")
 
 BASE_URL_ENV = "OTARI_BASE_URL"
-KEY_ENV = "OTARI_API_KEY"
 WEB_SEARCH_ENV = "OTARI_WEB_SEARCH"
 
 CONVERSATION_HEADER = "Otari-Conversation-Id"
+TAGS_HEADER = "Otari-Tags"
 WEB_SEARCH_HEADER = "Otari-Web-Search"
 WEB_SEARCH_MODES = ("auto", "otari", "provider")
 
@@ -50,8 +52,11 @@ def is_enabled() -> bool:
     return bool(os.environ.get(BASE_URL_ENV))
 
 
-def _headers(run_id: str) -> list[str]:
-    headers = [f"{CONVERSATION_HEADER}: hackbot-{run_id}"]
+def _headers(run_id: str, agent: str) -> list[str]:
+    headers = [
+        f"{CONVERSATION_HEADER}: hackbot-{run_id}",
+        f"{TAGS_HEADER}: app=hackbot,agent={agent}",
+    ]
     web_search = os.environ.get(WEB_SEARCH_ENV)
     if web_search:
         if web_search not in WEB_SEARCH_MODES:
@@ -63,44 +68,23 @@ def _headers(run_id: str) -> list[str]:
     return headers
 
 
-def configure(run_id: str) -> bool:
+def configure(run_id: str, agent: str) -> bool:
     """Point the Claude SDK/CLI at the gateway when the deploy enables it.
 
     Returns ``True`` when the gateway was configured, ``False`` when it is not
-    enabled. Raises :class:`ProviderError` on a configuration that would send
-    traffic somewhere other than intended.
+    enabled. Raises :class:`ProviderError` on an invalid ``OTARI_WEB_SEARCH``.
     """
     if not is_enabled():
         return False
 
-    # Federation would mint an Anthropic token the gateway has no use for, and
-    # leave it unclear which path a request took.
-    if anthropic_wif.is_enabled():
-        raise ProviderError(
-            f"{BASE_URL_ENV} and {anthropic_wif.RULE_ID_ENV} are both set; "
-            "route through the gateway or federate with Anthropic, not both."
-        )
-
-    key = os.environ.get(KEY_ENV)
-    if not key:
-        raise ProviderError(
-            f"{BASE_URL_ENV} is set but {KEY_ENV} is not; the run has no "
-            "credential for the gateway."
-        )
-
-    # Same convention as langchain-otari. The SDK appends /v1/messages itself.
+    # Same convention as langchain-otari. The SDK appends /v1/messages, and the
+    # federation exchange /v1/oauth/token, itself.
     api_root = os.environ[BASE_URL_ENV].rstrip("/")
     os.environ["ANTHROPIC_BASE_URL"] = api_root.removesuffix("/v1")
-    # Both names carry the gateway key, which also replaces any real Anthropic
-    # key in the environment so it is never sent to the gateway. The CLI sends
-    # the auth token as a bearer and the Python SDK sends the API key as
-    # x-api-key; Otari accepts either.
-    os.environ["ANTHROPIC_AUTH_TOKEN"] = key
-    os.environ["ANTHROPIC_API_KEY"] = key
 
     existing = os.environ.get(CUSTOM_HEADERS_ENV, "")
     lines = [line for line in existing.splitlines() if line.strip()]
-    lines.extend(_headers(run_id))
+    lines.extend(_headers(run_id, agent))
     os.environ[CUSTOM_HEADERS_ENV] = "\n".join(lines)
 
     log.info("Model traffic routed through Otari at %s", os.environ[BASE_URL_ENV])

@@ -74,8 +74,6 @@ class RunDoc(BaseModel):
     summary: RunSummary | None = None
     artifacts: list[ArtifactRef] = []
     error: str | None = None
-    # What the run spent on models, as recorded by the Otari gateway.
-    llm_cost_usd: float | None = None
 
 
 # --- Per-agent input schemas ---

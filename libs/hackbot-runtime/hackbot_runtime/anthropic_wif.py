@@ -45,8 +45,11 @@ from hackbot_runtime.providers import ProviderError
 log = logging.getLogger("hackbot_runtime.anthropic_wif")
 
 # Audience the metadata token is minted for; must match the federation rule's
-# ``audience`` matcher on the Anthropic side.
+# ``audience`` matcher on the Anthropic side. ``ANTHROPIC_IDENTITY_TOKEN_AUDIENCE``
+# overrides it for a gateway that answers the exchange, such as Otari, so a
+# token minted for the gateway is never one Anthropic would accept.
 ANTHROPIC_AUDIENCE = "https://api.anthropic.com"
+AUDIENCE_ENV = "ANTHROPIC_IDENTITY_TOKEN_AUDIENCE"
 
 # Presence of the federation rule id is what flips the runtime from API-key mode
 # to WIF mode — the deploy sets it only on federation-enabled workloads.
@@ -206,7 +209,8 @@ def configure() -> bool:
 
     token_file = Path(os.environ.get(TOKEN_FILE_ENV) or _default_token_path())
     interval = _refresh_interval()
-    refresher = _TokenFileRefresher(token_file, interval)
+    audience = os.environ.get(AUDIENCE_ENV) or ANTHROPIC_AUDIENCE
+    refresher = _TokenFileRefresher(token_file, interval, audience)
     refresher.start()
     os.environ[TOKEN_FILE_ENV] = str(token_file)
     _refresher = refresher
